@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIEGE PROTOCOL — Tactical FPS</title>
+<style>
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#17131f;font-family:'Segoe UI',Arial,sans-serif;color:#e8e4da;}
+  #app{position:fixed;inset:0;}
+  canvas.game{display:block;width:100%;height:100%;}
+  .hidden{display:none !important;}
+  /* crosshair */
+  #cross{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;z-index:5;}
+  #cross .dot{position:absolute;left:-2px;top:-2px;width:4px;height:4px;background:#e8ff47;border-radius:50%;}
+  #cross .l{position:absolute;background:#e8ff47;}
+  /* HUD bars */
+  #hud{position:absolute;inset:0;pointer-events:none;z-index:4;}
+  #topleft{position:absolute;left:14px;top:12px;font-size:13px;line-height:1.5;text-shadow:0 1px 2px #000;}
+  #topleft .sc{font-size:20px;font-weight:700;letter-spacing:1px;}
+  #topleft .sc .vg{color:#5aa8ff;} #topleft .sc .st{color:#ff9a3d;}
+  #timer{position:absolute;left:50%;top:10px;transform:translateX(-50%);font-size:26px;font-weight:700;text-shadow:0 1px 3px #000;}
+  #bombstat{position:absolute;left:50%;top:44px;transform:translateX(-50%);font-size:13px;font-weight:700;color:#ffb02e;text-shadow:0 1px 2px #000;}
+  #botleft{position:absolute;left:14px;bottom:14px;}
+  #hpbar{width:220px;height:14px;background:#0008;border:1px solid #ffffff44;}
+  #hpfill{height:100%;width:100%;background:linear-gradient(90deg,#37c8a5,#7be3c3);}
+  #armorbar{width:220px;height:6px;background:#0008;border:1px solid #ffffff33;margin-top:3px;}
+  #armorfill{height:100%;width:0%;background:#5aa8ff;}
+  #hptxt{font-size:22px;font-weight:700;margin-top:4px;text-shadow:0 1px 2px #000;}
+  #botright{position:absolute;right:16px;bottom:14px;text-align:right;text-shadow:0 1px 2px #000;}
+  #ammo{font-size:30px;font-weight:700;} #ammo small{font-size:16px;color:#cfc9bd;}
+  #money{font-size:19px;color:#8fe388;font-weight:700;}
+  #wname{font-size:13px;color:#cfc9bd;letter-spacing:1px;}
+  #feed{position:absolute;right:16px;top:64px;text-align:right;font-size:13px;line-height:1.7;text-shadow:0 1px 2px #000;}
+  #banner{position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:44px;font-weight:800;letter-spacing:4px;color:#fff;text-shadow:0 2px 12px #000;opacity:0;transition:opacity .3s;}
+  #subbanner{position:absolute;left:50%;top:calc(22% + 54px);transform:translateX(-50%);font-size:16px;color:#ffd76a;text-shadow:0 1px 3px #000;opacity:0;transition:opacity .3s;}
+  #hitmark{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;pointer-events:none;opacity:0;}
+  #hitmark:before,#hitmark:after{content:"";position:absolute;left:12px;top:0;width:2px;height:26px;background:#fff;transform:rotate(45deg);}
+  #hitmark:after{transform:rotate(-45deg);}
+  #hitmark.kill:before,#hitmark.kill:after{background:#ff5340;}
+  #dmgdir{position:absolute;left:50%;top:50%;width:120px;height:120px;margin:-60px 0 0 -60px;pointer-events:none;opacity:0;}
+  #dmgdir .arc{position:absolute;left:50%;top:0;width:60px;height:14px;margin-left:-30px;background:radial-gradient(ellipse at center,#ff4030 0%,transparent 70%);border-radius:50%;}
+  #vig{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 55%,rgba(255,0,0,.55) 100%);opacity:0;}
+  #flash{position:absolute;inset:0;pointer-events:none;background:#fff;opacity:0;}
+  #plantbar{position:absolute;left:50%;bottom:120px;transform:translateX(-50%);width:260px;text-align:center;font-size:13px;font-weight:700;text-shadow:0 1px 2px #000;}
+  #plantbar .track{height:10px;background:#000a;border:1px solid #fff6;margin-top:4px;}
+  #plantbar .fill{height:100%;width:0%;background:#ffb02e;}
+  #map{position:absolute;right:14px;bottom:120px;border:1px solid #ffffff55;background:#0009;}
+  #hint{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);font-size:13px;color:#e8e4da;text-shadow:0 1px 2px #000;}
+  /* overlays / menus */
+  .panel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,8,16,.82);z-index:10;text-align:center;}
+  .panel h1{font-size:52px;letter-spacing:8px;margin:0;color:#fff;}
+  .panel h1 span{color:#e8ff47;}
+  .panel h2{font-size:15px;letter-spacing:4px;color:#ffb02e;margin:6px 0 18px;font-weight:600;}
+  .panel p{max-width:560px;font-size:14px;line-height:1.6;color:#cfc9bd;margin:6px 0;}
+  .btn{pointer-events:auto;cursor:pointer;margin-top:18px;padding:12px 34px;font-size:16px;font-weight:700;letter-spacing:2px;background:#e8ff47;color:#111;border:0;}
+  .btn:hover{background:#f4ff7a;}
+  .keys{display:grid;grid-template-columns:auto auto;gap:4px 18px;font-size:13px;text-align:left;margin-top:14px;color:#cfc9bd;}
+  .keys b{color:#fff;}
+  /* buy menu */
+  #buy{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,8,16,.72);z-index:9;}
+  #buy .card{width:640px;max-width:94vw;background:#14101d;border:1px solid #ffb02e66;padding:18px 22px;}
+  #buy h2{margin:0 0 4px;font-size:20px;letter-spacing:2px;} #buy h2 span{color:#8fe388;}
+  #buy .sub{font-size:12px;color:#cfc9bd;margin-bottom:12px;}
+  .shop{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .item{pointer-events:auto;cursor:pointer;border:1px solid #ffffff33;padding:9px 11px;font-size:13px;line-height:1.45;background:#ffffff08;}
+  .item:hover{border-color:#e8ff47;}
+  .item.owned{border-color:#37c8a5;color:#9be8d2;}
+  .item.poor{opacity:.45;}
+  .item b{font-size:14px;} .item .pr{float:right;color:#8fe388;font-weight:700;}
+  .item .k{color:#ffb02e;font-weight:700;}
+  #selftest{position:absolute;left:8px;bottom:8px;z-index:20;font:12px monospace;color:#8fe388;background:#000c;padding:6px;max-width:60vw;white-space:pre-wrap;}
+</style>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.min.js"}}</script>
+</head>
+<body>
+<div id="app">
+  <div id="hud">
+    <div id="topleft"><div class="sc"><span class="vg">VANGUARD <span id="scV">0</span></span> — <span class="st"><span id="scS">0</span> SENTINEL</span></div><div id="roundlbl">ROUND 1 / 9 &nbsp;·&nbsp; FIRST TO 5</div><div id="sitelbl">FOUNDRY YARD — A: CRANE BAY · B: FURNACE HALL</div></div>
+    <div id="timer">1:40</div>
+    <div id="bombstat"></div>
+    <div id="feed"></div>
+    <div id="botleft"><div id="hpbar"><div id="hpfill"></div></div><div id="armorbar"><div id="armorfill"></div></div><div id="hptxt">100</div></div>
+    <div id="botright"><div id="ammo">15 <small>/ 60</small></div><div id="wname">P9 SIDEARM</div><div id="money">$800</div></div>
+    <canvas id="map" width="180" height="132"></canvas>
+    <div id="cross"><div class="dot"></div><div class="l" id="clT"></div><div class="l" id="clB"></div><div class="l" id="clL"></div><div class="l" id="clR"></div></div>
+    <div id="hitmark"></div>
+    <div id="dmgdir"><div class="arc"></div></div>
+    <div id="vig"></div><div id="flash"></div>
+    <div id="plantbar" class="hidden"><div id="planttxt">PLANTING…</div><div class="track"><div class="fill" id="plantfill"></div></div></div>
+    <div id="hint"></div>
+    <div id="banner"></div><div id="subbanner"></div>
+  </div>
+  <div id="buy" class="hidden"><div class="card">
+    <h2>BUY MENU <span id="buymoney">$800</span></h2>
+    <div class="sub">Keys 1–4 weapons · 5–7 grenades · 8 armor · B or click to close · buy phase ends when the timer hits zero</div>
+    <div class="shop" id="shop"></div>
+  </div></div>
+  <div id="menu" class="panel">
+    <h1>SIEGE <span>PROTOCOL</span></h1>
+    <h2>5V5 TACTICAL FPS · FOUNDRY YARD</h2>
+    <p>You are Vanguard. Plant the spike at Crane Bay (A) or Furnace Hall (B) — or eliminate all five Sentinels. First to 5 rounds takes the match. Buy smart between rounds: money is earned, never given.</p>
+    <div class="keys">
+      <span><b>W A S D</b> move</span><span><b>Mouse</b> aim · <b>Click</b> fire</span>
+      <span><b>Shift</b> sprint · <b>Ctrl</b> crouch</span><span><b>R</b> reload · <b>Q</b> swap weapon</span>
+      <span><b>1–4</b> weapons · <b>5–7</b> grenades</span><span><b>B</b> buy menu · <b>E</b> plant / interact</span>
+      <span><b>Space</b> jump</span><span><b>Esc</b> pause</span>
+    </div>
+    <button class="btn" id="deploy">▶ DEPLOY</button>
+    <p style="font-size:12px;color:#8a8496">Best played with sound on · headphones recommended · a complete game: rounds, economy, bots, bomb, grenades</p>
+  </div>
+  <div id="roundend" class="panel hidden">
+    <h1 id="reTitle">ROUND WON</h1>
+    <h2 id="reSub"></h2>
+    <p id="reDetail"></p>
+    <button class="btn" id="reNext">CONTINUE</button>
+  </div>
+  <div id="matchend" class="panel hidden">
+    <h1 id="meTitle">VICTORY</h1>
+    <h2 id="meSub"></h2>
+    <p id="meDetail"></p>
+    <button class="btn" id="meAgain">PLAY AGAIN</button>
+  </div>
+  <div id="pause" class="panel hidden">
+    <h1>PAUSED</h1><p>Click resume to lock the mouse and keep playing.</p>
+    <button class="btn" id="resume">RESUME</button>
+  </div>
+  <div id="selftest" class="hidden"></div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
